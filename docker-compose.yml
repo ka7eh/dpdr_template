@@ -1,0 +1,75 @@
+version: "3.7"
+
+services:
+  nginx:
+    build:
+        context: .
+        dockerfile: docker/nginx/Dockerfile
+    restart: on-failure
+    entrypoint:
+        - /root/entrypoint.sh
+    hostname: nginx
+    networks:
+        - lognet
+    ports:
+        - 8000:8000
+    volumes:
+        - ./docker/nginx/default.conf:/etc/nginx/conf.d/default.conf
+
+  postgres:
+    image: postgres:10
+    restart: on-failure
+    env_file:
+      - .env
+    expose:
+      - 5432
+    ports:
+      - 5433:5432
+    networks:
+      - lognet
+    volumes:
+      - ./docker/postgres/init-user-db.sh:/docker-entrypoint-initdb.d/init-user-db.sh
+      - postgres_data:/var/lib/postgresql/data
+
+  ui:
+    build:
+      context: .
+      dockerfile: docker/ui/Dockerfile
+    restart: on-failure
+    env_file:
+      - .env
+    entrypoint:
+      - /root/entrypoint.sh
+    networks:
+      - lognet
+    expose:
+      - 3000
+    volumes:
+      - ./static:/root/static/
+      - ./ui:/root/ui/
+
+  api:
+    build:
+      context: .
+      dockerfile: docker/api/Dockerfile
+    restart: on-failure
+    env_file:
+      - .env
+    depends_on:
+      - postgres
+    entrypoint:
+      - /root/entrypoint.sh
+    networks:
+      - lognet
+    expose:
+      - 8000
+    volumes:
+      - ./api:/root/api
+
+networks:
+  lognet:
+    driver: bridge
+
+volumes:
+  postgres_data:
+    driver: local
